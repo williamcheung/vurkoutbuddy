@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>V&uuml;rkout Buddy &mdash; kickin' sand in face</title>
+<script>
+	var DB_NAME = 'vurkoutbuddy';
+	var STORE_NAME = 'workouts';
+	window.indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
+	window.IDBTransaction = window.IDBTransaction || window.webkitIDBTransaction;
+	window.IDBCursor = window.IDBCursor || window.webkitIDBCursor;
+	var indexedDB = window.indexedDB;
+	if (indexedDB == undefined)
+		alert('get a browser that supports IndexedDB, bro');
+
+	function onUnexpectedError(e) { alert('whoa! error: ' + e.value); }
+
+	function openStore(db, callback) {
+		var transaction = db.transaction(STORE_NAME, IDBTransaction.READ_WRITE);
+		var store = transaction.objectStore(STORE_NAME);
+		callback(store);
+	}
+
+	function enableClearAll(enable) {
+		document.getElementById('clearAll').disabled = !enable;
+	}
+
+	function insertCell(row, data) {
+		var cell = row.insertCell(-1);
+		cell.innerHTML = data;
+	}
+
+	function insertWorkout(date, workout) {
+		date = new Date(date);
+
+		var table = document.getElementById('table');
+		var row = table.insertRow(-1);
+		insertCell(row, date.toDateString() + ' ' + date.toLocaleTimeString());
+		insertCell(row, workout.focus);
+		insertCell(row, workout.set);
+		insertCell(row, workout.reps);
+		insertCell(row, workout.weight);
+		insertCell(row, workout.rating);
+		insertCell(row, workout.exercise);
+		insertCell(row, workout.notes);
+	}
+
+	function insertWorkouts(store) {
+		var cursorRequest = store.openCursor(null/*unrestricted keyrange*/, IDBCursor.PREV);
+		cursorRequest.onsuccess = function (e) {
+			var cursor = cursorRequest.result;
+			if (cursor !== undefined) {
+				var key = cursor.key;
+				var getRequest = store.get(key);
+				getRequest.onsuccess = function (e) {
+					insertWorkout(key, getRequest.result);
+					enableClearAll(true);
+					cursor.continue(); // to next row
+				}
+				getRequest.onerror = onUnexpectedError;
+			}
+		};
+		cursorRequest.onerror = onUnexpectedError;
+	}
+
+	function deleteWorkouts(store) {
+		var request = store.clear();
+		request.onsuccess = function (e) {
+			var table = document.getElementById('table');
+			var rows = table.rows.length;
+			for (i = 1; i < rows; i++) {
+				table.deleteRow(-1);
+			}
+			enableClearAll(false);
+		}
+		request.onerror = onUnexpectedError;
+	}
+
+	function loadWorkouts() {
+		// open db
+		var openDbRequest = indexedDB.open(DB_NAME);
+		openDbRequest.onsuccess = function (e) {
+			var db = e.target.result;
+			db.onerror = onUnexpectedError;
+
+			if (db.objectStoreNames.contains(STORE_NAME)) {
+				// open db store and insertWorkouts
+				openStore(db, insertWorkouts);
+			}
+		};
+		openDbRequest.onerror = function () {
+			alert('allow access to IndexedDB for this webpage, bro');
+		};
+	}
+
+	function clearAll() {
+		if (!confirm('are u sure?'))
+			return;
+		var openDbRequest = indexedDB.open(DB_NAME);
+		openDbRequest.onsuccess = function (e) {
+			var db = e.target.result;
+			db.onerror = onUnexpectedError;
+			openStore(db, deleteWorkouts);
+		};
+	}
+</script>
+</head>
+<body bgcolor="#8EE5EE" text="white" onload="loadWorkouts()">
+	<h1>V&uuml;rkout Buddy</h1>
+	<h2>ur v&uuml;rkout log:</h2>
+	<table id="table" border="1" cellpadding="3">
+		<tr>
+			<th>Date</th>
+			<th>Focus</th>
+			<th>Set #</th>
+			<th>Reps</th>
+			<th>Weight</th>
+			<th>Rating</th>
+			<th>Exercise</th>
+			<th>Notes</th>
+		</tr>
+	</table>
+	<p>
+		<input type="button" id="clearAll" disabled="true" value="clear all" onclick="clearAll()"/>
+	</p>
+</body>
+</html>

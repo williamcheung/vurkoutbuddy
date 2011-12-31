@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>V&uuml;rkout Buddy &mdash; kickin' sand in face</title>
+<script>
+	var DB_NAME = 'vurkoutbuddy';
+	var STORE_NAME = 'workouts';
+	window.indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
+	window.IDBTransaction = window.IDBTransaction || window.webkitIDBTransaction;
+	var indexedDB = window.indexedDB;
+	if (indexedDB == undefined)
+		alert('get a browser that supports IndexedDB, bro');
+
+	function onUnexpectedError(e) { alert('whoa! error: ' + e.value); }
+
+	function createStore(db, callback) {
+		var request = db.setVersion('1.0'); // setVersion tx req'd to createObjectStore
+		request.onsuccess = function() {
+			var store = db.createObjectStore(STORE_NAME);
+			callback(store); // this executes in the setVersion tx
+		};
+		request.onerror = onUnexpectedError;
+	}
+
+	function openStore(db, callback) {
+		var transaction = db.transaction(STORE_NAME, IDBTransaction.READ_WRITE);
+		var store = transaction.objectStore(STORE_NAME);
+		callback(store);
+	}
+
+	function saveRow(store, row) {
+		var key = new Date().getTime();
+		var request = store.put(row, key);
+		request.onsuccess = function() {
+			alert('vurkout saved!');
+		};
+		request.onerror = onUnexpectedError;
+	}
+
+	function isOtherFocus() {
+		return document.form.focus.selectedIndex == document.form.focus.length-1;
+	}
+
+	function saveWorkout() {
+		// get parameters from the form to build the workout record
+		var focus, set, reps, weight, exercise, notes, rating;
+		if (isOtherFocus())
+			focus = document.form.other.value;
+		else
+			focus = document.form.focus.options[document.form.focus.selectedIndex].value;
+		set = document.form.set.value;
+		reps = document.form.reps.value;
+		weight = document.form.weight.value;
+		exercise = document.form.exercise.value;
+		notes = document.form.notes.value;
+		rating = document.form.rating.value;
+		var workout = {'focus': focus, 'set': set, 'reps': reps, 'weight': weight, 'exercise': exercise, 'notes': notes, 'rating': rating};
+
+		// open db
+		var openDbRequest = indexedDB.open(DB_NAME);
+		openDbRequest.onsuccess = function (e) {
+			var db = e.target.result;
+			db.onerror = onUnexpectedError;
+
+			function saveRowCallback(store) {
+				saveRow(store, workout);
+			};
+			if (!db.objectStoreNames.contains(STORE_NAME)) {
+				// create db store and save workout as row keyed by date
+				createStore(db, saveRowCallback);
+			} else {
+				// open db store and save workout as row keyed by date
+				openStore(db, saveRowCallback);
+			}
+		};
+		openDbRequest.onerror = function () {
+			alert('allow access to IndexedDB for this webpage, bro');
+		};
+	}
+
+	function enableOther() {
+		if (isOtherFocus()) {
+			document.form.other.disabled = false;
+			document.form.other.value = 'what other, u freak?';
+		} else {
+			document.form.other.disabled = true;
+			document.form.other.value = '';
+		}
+	}
+</script>
+</head>
+<body bgcolor="#8EE5EE" text="white">
+	<h1>V&uuml;rkout Buddy</h1>
+	<a href="https://github.com/williamcheung"><img src="geek-muscle.jpeg" alt="geek muscle" border="0"/></a>
+	<br/><font size="-1">a geek muscle production</font>
+	<h2>ur v&uuml;rkout:</h2>
+	<form name="form">
+		<table>
+			<tr>
+				<td>
+					<label>Focus:</label>
+					<select name="focus" onchange="enableOther()">
+						<option value="Abs">Abs</option>
+						<option value="Biceps">Biceps</option>
+						<option value="Calves">Calves</option>
+						<option value="Chest">Chest</option>
+						<option value="Forearms">Forearms</option>
+						<option value="Glutes / butt">Glutes / Butt</option>
+						<option value="Hamstrings">Hamstrings</option>
+						<option value="Lats / back">Lats / Back</option>
+						<option value="Lower back">Lower Back</option>
+						<option value="Middle back">Middle Back</option>
+						<option value="Neck">Neck</option>
+						<option value="Quadriceps">Quadriceps</option>
+						<option value="Shoulders">Shoulders</option>
+						<option value="Traps">Traps</option>
+						<option value="Triceps">Triceps</option>
+						<option value="Other">Other</option>
+					</select>
+				</td>
+			</tr>
+			<tr>
+				<td>
+					<label>if other, what?</label>
+					<input name="other" disabled="true"/>
+				</td>
+			</tr>
+			<tr>
+				<td><hr></td>
+			</tr>
+			<tr>
+				<td>
+					<label>Set #:</label>
+					<input name="set" value="1" size="1" maxlength="1"/>
+				</td>
+			</tr>
+			<tr>
+				<td>
+					<label>Reps:</label>
+					<input name="reps" value="10" size="1" maxlength="2"/>
+				</td>
+			</tr>
+			<tr>
+				<td>
+					<label>Weight:</label>
+					<input name="weight" value="40" size="1" maxlength="3"/>
+				</td>
+			</tr>
+			<tr>
+				<td><hr/></td>
+			</tr>
+			<tr>
+				<td>
+					<label>Exercise:</label>
+					<input name="exercise"/>
+				</td>
+			</tr>
+			<tr/>
+			<tr>
+				<td>
+					<label>Notes:</label>
+				</td>
+			</tr>
+			<tr>
+				<td>
+					<textarea name="notes" rows="3" cols="25" wrap="soft"></textarea>
+				</td>
+			</tr>
+			<tr>
+				<td>
+					<label>Self-Rating:</label>
+					<input name="rating" value="9" size="1" maxlength="2"/>
+				</td>
+			</tr>
+			<tr>
+				<td><hr noshade=""></td>
+			</tr>
+		</table>
+		<input type="button" name="save" value="save this masterpiece" onclick="saveWorkout()"/>
+		<input type="reset" value="reset"/>
+		<p>
+			<a href="log.html">v&uuml;rkout log</a>
+		</p>
+	</form>
+</body>
+</html>
